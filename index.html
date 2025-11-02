@@ -1,163 +1,128 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>All Vetande AI</title>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; background:#f4f4f4; }
-  #chat { border:1px solid #ccc; padding:10px; height:300px; overflow-y:auto; background:white; margin-bottom:10px; }
-  #userInput { width:70%; padding:5px; }
-  button { padding:5px 10px; margin-left:5px; margin-top:5px; }
-  #progressContainer, #deepProgressContainer { width:100%; background:#ddd; margin-top:10px; height:20px; }
-  #progressBar { width:0%; height:100%; background:#4caf50; }
-  #deepProgressBar { width:0%; height:100%; background:#2196F3; }
-</style>
+    <meta charset="UTF-8">
+    <title>All Vetande AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        #chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; }
+        input, button { margin: 5px 0; padding: 5px; }
+        hr { margin: 20px 0; }
+    </style>
 </head>
 <body>
+    <h1>All Vetande AI</h1>
+    
+    <div id="chatBox"></div>
+    <input type="text" id="msgInput" placeholder="Skriv meddelande här">
+    <button id="sendBtn">Skicka</button>
+    
+    <hr>
+    <h2>Extra AI-Funktioner</h2>
 
-<h1>All Vetande AI</h1>
+    <!-- Definiera -->
+    <input type="text" id="defineInput" placeholder="Skriv ord/begrepp här">
+    <button id="defineBtn">Definiera</button>
+    <br>
+    
+    <!-- Skriv historia -->
+    <input type="text" id="storyInput" placeholder="Skriv ämne/förslag för historia">
+    <button id="storyBtn">Skriv Historia</button>
+    <br>
 
-<label for="personalitySelect">Välj personlighet:</label>
-<select id="personalitySelect">
-  <option value="allVetande">All Vetande</option>
-  <option value="kreativ">Kreativ</option>
-  <option value="programmerare">Programmerare</option>
-</select>
-
-<div id="chat"></div>
-
-<input type="text" id="userInput" placeholder="Skriv din fråga här">
-<button id="sendBtn">Skicka</button>
-
-<hr>
-<h2>Full Web Scan</h2>
-<button id="fullWebScanBtn">Starta Full Web Scan</button>
-<button id="pauseScanBtn">Pausa</button>
-<button id="resumeScanBtn">Fortsätt</button>
-<div id="progressContainer"><div id="progressBar"></div></div>
-
-<hr>
-<h2>Djup Skanning</h2>
-<button id="deepScanBtn">Starta Djup Skanning</button>
-<button id="pauseDeepScanBtn">Pausa</button>
-<button id="resumeDeepScanBtn">Fortsätt</button>
-<div id="deepProgressContainer"><div id="deepProgressBar"></div></div>
+    <!-- Skanna och Deep Search -->
+    <button id="scanBtn">Skanna för smarthet</button>
+    <button id="deepSearchBtn">Djup skanning (en webb per gång)</button>
 
 <script>
-let memory = JSON.parse(localStorage.getItem('AI_Memory')) || { allVetande:{}, kreativ:{}, programmerare:{} };
-let scanning = false;
-let fullScanProgress = 0;
-let fullScanInterval = null;
-let scanPaused = false;
-let currentPersonality = document.getElementById('personalitySelect').value;
+// ===== MEMORY OCH PERSONALITET =====
+let memory = JSON.parse(localStorage.getItem('AI_Memory')) || {};
+let currentPersonality = 'All Vetande';
+if (!memory[currentPersonality]) memory[currentPersonality] = {messages: [], Definitions: {}, Stories: {}};
 
-let deepScanProgress = 0;
-let deepScanInterval = null;
-let deepScanPaused = false;
-
-document.getElementById('personalitySelect').onchange = e => {
-  currentPersonality = e.target.value;
-  displayMessage('System','Bytte till personlighet: '+currentPersonality);
+function saveMemory() {
+    localStorage.setItem('AI_Memory', JSON.stringify(memory));
 }
 
-document.getElementById('sendBtn').onclick = ()=> {
-  const input = document.getElementById('userInput').value;
-  if(input.trim()==='') return;
-  displayMessage('Du', input);
-  respond(input);
-  document.getElementById('userInput').value = '';
+function displayMessage(sender, message) {
+    const chatBox = document.getElementById('chatBox');
+    const msgDiv = document.createElement('div');
+    msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-function displayMessage(sender,text){
-  const chat = document.getElementById('chat');
-  chat.innerHTML += `<b>${sender}:</b> ${text}<br>`;
-  chat.scrollTop = chat.scrollHeight;
-}
-
-function respond(input){
-  let knowledge = memory[currentPersonality];
-  let known = Object.values(knowledge).find(k => input.includes(k.lastResponse));
-  let response = known ? `Jag minns detta: ${known.lastResponse}` : `Simulerad svar på: "${input}"`;
-  
-  knowledge['Q'+Date.now()] = { input, lastResponse: response };
-  saveMemory();
-  
-  displayMessage(currentPersonality, response);
-}
-
-function saveMemory(){
-  localStorage.setItem('AI_Memory', JSON.stringify(memory));
-}
-
-// Full Web Scan
-document.getElementById('fullWebScanBtn').onclick = startFullWebScan;
-document.getElementById('pauseScanBtn').onclick = () => { scanPaused = true; displayMessage('System','Full Web Scan pausad'); };
-document.getElementById('resumeScanBtn').onclick = () => { scanPaused = false; displayMessage('System','Full Web Scan fortsätter'); };
-
-function startFullWebScan() {
-  if(scanning) return;
-  scanning = true;
-  fullScanProgress = 0;
-  scanPaused = false;
-  displayMessage('System','Full Web Scan startad!');
-  const progressBar = document.getElementById('progressBar');
-
-  fullScanInterval = setInterval(()=>{
-    if(scanPaused) return;
-    fullScanProgress++;
-    progressBar.style.width = fullScanProgress + '%';
-    displayMessage('System',`Full Web Scan progress: ${fullScanProgress}%`);
-
-    memory[currentPersonality][`WebData${fullScanProgress}`] = {
-      count:1,
-      lastResponse:`Simulerad webblärning steg ${fullScanProgress}`
-    };
+// ===== LÄRA SIG FRÅN ALLT =====
+function learnFromMessage(message) {
+    memory[currentPersonality].messages.push(message);
     saveMemory();
-
-    if(fullScanProgress>=100){
-      clearInterval(fullScanInterval);
-      scanning=false;
-      progressBar.style.width='0%';
-      displayMessage('System','Full Web Scan klar!');
-    }
-  }, 500);
 }
 
-// Djup Skanning
-document.getElementById('deepScanBtn').onclick = startDeepScan;
-document.getElementById('pauseDeepScanBtn').onclick = () => { deepScanPaused = true; displayMessage('System','Djup Skanning pausad'); };
-document.getElementById('resumeDeepScanBtn').onclick = () => { deepScanPaused = false; displayMessage('System','Djup Skanning fortsätter'); };
+// ===== AUTOMATISKA HISTORIER =====
+function processMessageAutomatically(message) {
+    const lowerMsg = message.toLowerCase();
+    if (lowerMsg.includes("berätta") || lowerMsg.includes("skriv") || lowerMsg.includes("historia") || lowerMsg.includes("story")) {
+        const topic = message;
+        const story = `Historia om "${topic}": En berättelse baserad på AI-lärande från dina tidigare meddelanden.`;
+        memory[currentPersonality]['Stories'][topic] = story;
+        saveMemory();
+        displayMessage(currentPersonality, story);
+    }
+}
 
-function startDeepScan(){
-  if(scanning) return;
-  scanning = true;
-  deepScanProgress = 0;
-  deepScanPaused = false;
-  displayMessage('System','Djup Skanning startad!');
-  const deepProgressBar = document.getElementById('deepProgressBar');
+// ===== CHATT =====
+document.getElementById('sendBtn').onclick = () => {
+    const msgInput = document.getElementById('msgInput');
+    const msg = msgInput.value.trim();
+    if (!msg) return;
 
-  deepScanInterval = setInterval(()=>{
-    if(deepScanPaused) return;
-    deepScanProgress++;
-    deepProgressBar.style.width = deepScanProgress + '%';
-    displayMessage('System',`Djup Skanning progress: ${deepScanProgress}%`);
+    displayMessage('Du', msg);
+    learnFromMessage(msg);
+    processMessageAutomatically(msg);
+    msgInput.value = '';
 
-    memory[currentPersonality][`DeepWebData${deepScanProgress}`] = {
-      count:1,
-      lastResponse:`Simulerad djup webblärning steg ${deepScanProgress}`
-    };
+    const aiReply = `AI svar baserat på tidigare meddelanden: "${msg}" (simulerat svar)`;
+    displayMessage(currentPersonality, aiReply);
+    learnFromMessage(aiReply);
+};
+
+// ===== DEFINIERA =====
+document.getElementById('defineBtn').onclick = () => {
+    const term = document.getElementById('defineInput').value.trim();
+    if (!term) return;
+    const definition = `Definition av "${term}": Simulerad förklaring baserad på AI-lärande.`;
+    memory[currentPersonality]['Definitions'][term] = definition;
     saveMemory();
+    displayMessage(currentPersonality, definition);
+    document.getElementById('defineInput').value = '';
+};
 
-    if(deepScanProgress>=100){
-      clearInterval(deepScanInterval);
-      scanning=false;
-      deepProgressBar.style.width='0%';
-      displayMessage('System','Djup Skanning klar!');
-    }
-  }, 1000);
-}
+// ===== SKRIV HISTORIA =====
+document.getElementById('storyBtn').onclick = () => {
+    const topic = document.getElementById('storyInput').value.trim();
+    if (!topic) return;
+    const story = `Historia om "${topic}": En simulerad berättelse baserad på AI-lärande.`;
+    memory[currentPersonality]['Stories'][topic] = story;
+    saveMemory();
+    displayMessage(currentPersonality, story);
+    document.getElementById('storyInput').value = '';
+};
+
+// ===== SKANNA FÖR SMARTHET =====
+document.getElementById('scanBtn').onclick = () => {
+    displayMessage(currentPersonality, "Skanning pågår... Simulerar inlärning från internet (kan ta tid)...");
+    setTimeout(() => {
+        displayMessage(currentPersonality, "Skanning klar. AI har lärt sig nya koncept baserat på simulering.");
+    }, 3000); // simulerad delay
+};
+
+// ===== DJUP SKANNING =====
+document.getElementById('deepSearchBtn').onclick = () => {
+    displayMessage(currentPersonality, "Djup skanning pågår... Skannar en webbplats i taget (simulerad)...");
+    setTimeout(() => {
+        displayMessage(currentPersonality, "Djup skanning klar. AI har analyserat sidan.");
+    }, 3000);
+};
 </script>
-
 </body>
 </html>
