@@ -2,113 +2,187 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>All Vetande AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Vetande AI - Avancerad</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-#chat { width: 100%; height: 300px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; white-space: pre-wrap; background:#f9f9f9;}
-#progressContainer { width: 100%; background: #ddd; height: 25px; display: none; margin-top: 10px; }
-#progressBar { width: 0%; height: 100%; background: #4caf50; text-align:center; color:white; }
+  body { font-family: Arial, sans-serif; background: #f9f9f9; margin:0; padding:0; }
+  #chatContainer { width: 80%; max-width: 900px; margin: 50px auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
+  #chatBox { height: 500px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background:#fdfdfd; }
+  .message { margin: 5px 0; }
+  .user { color: blue; font-weight:bold; }
+  .ai { color: green; font-weight:bold; }
+  #controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top:10px; }
+  button { padding: 10px; cursor: pointer; border: none; border-radius: 5px; background: #007BFF; color: #fff; }
+  button:hover { background: #0056b3; }
+  #progress { width: 100%; height: 20px; background: #eee; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+  #progressBar { height: 100%; width: 0; background: #4caf50; transition: width 0.2s; }
 </style>
 </head>
 <body>
-
-<h1>All Vetande AI</h1>
-
-<div>
-<label for="sourceType">Källa:</label>
-<select id="sourceType">
-  <option value="wikipedia">Wikipedia</option>
-  <option value="book">Bok (URL)</option>
-</select>
-<input type="text" id="sourceInput" placeholder="Titel eller URL">
-<button onclick="addSource()">Lägg till källa</button>
-<button onclick="scanAllSources()">Skanna alla källor i kön</button>
+<div id="chatContainer">
+  <div id="progress"><div id="progressBar"></div></div>
+  <div id="chatBox"></div>
+  <input type="text" id="userInput" placeholder="Skriv din fråga här..." style="width:100%; padding:10px; margin-bottom:10px;">
+  <div id="controls">
+    <button onclick="sendMessage()">Skicka</button>
+    <button onclick="scanForSmartness()">Skanna för smarthet</button>
+    <button onclick="switchPersonality()">Byt AI-personlighet</button>
+    <button onclick="exportMemory()">Exportera minne</button>
+    <button onclick="importMemory()">Importera minne</button>
+  </div>
 </div>
-
-<div id="progressContainer">
-  <div id="progressBar">0%</div>
-</div>
-
-<h2>Chat</h2>
-<div id="chat"></div>
 
 <script>
-// Globala variabler
-let memory = JSON.parse(localStorage.getItem("aiMemory") || "[]");
-let sourcesQueue = [];
-document.getElementById("chat").innerHTML = localStorage.getItem("chatHistory") || "";
+  // --- Global State ---
+  let personality = 'All Vetande';
+  let memory = JSON.parse(localStorage.getItem('aiMemory')) || {
+    math:{}, history:{}, creative:{}, programming:{}, general:{}, examples:[]
+  };
+  let scanning = false;
 
-// Lägg till källa i kön
-function addSource() {
-    let type = document.getElementById("sourceType").value;
-    let input = document.getElementById("sourceInput").value.trim();
-    if(!input) { appendChat("Ange titel eller URL för källan."); return; }
+  function saveMemory() {
+    localStorage.setItem('aiMemory', JSON.stringify(memory));
+  }
 
-    let src = {type, query: type==="wikipedia"?input:null, url:type==="book"?input:null};
-    sourcesQueue.push(src);
-    document.getElementById("sourceInput").value="";
-    appendChat("Källa lagd i kö: " + (src.query || src.url));
-}
+  function displayMessage(sender, text) {
+    const chatBox = document.getElementById('chatBox');
+    const msg = document.createElement('div');
+    msg.classList.add('message', sender.toLowerCase());
+    msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
-// Starta kö-skanning
-function scanAllSources() {
-    if(sourcesQueue.length===0){ appendChat("Ingen källa i kön att skanna."); return; }
-    appendChat("Startar skanning av alla källor...");
-    scanNextSource();
-}
+  // --- AI Learning & Response ---
+  function categorizeInput(text) {
+    const lower = text.toLowerCase();
+    if(lower.includes('matematik') || lower.match(/\d/)) return 'math';
+    if(lower.includes('historia') || lower.includes('vem') || lower.includes('år')) return 'history';
+    if(lower.includes('berättelse') || lower.includes('skriv') || lower.includes('poesi')) return 'creative';
+    if(lower.includes('kod') || lower.includes('programmering') || lower.includes('javascript') || lower.includes('python')) return 'programming';
+    return 'general';
+  }
 
-// Skannar nästa källa i kön
-async function scanNextSource() {
-    if(sourcesQueue.length===0){ appendChat("Alla källor har skannats."); return; }
-    let src = sourcesQueue.shift();
-    await scanSourceProgressively(src);
-    scanNextSource(); // nästa källa
-}
+  function generateExample(category, text) {
+    // Enkel exempelgenerator baserat på kategori
+    if(category==='math') return `Exempel: Om x + 5 = 10, då är x = 5.`;
+    if(category==='history') return `Exempel: 1776 deklarerades USA:s självständighet.`;
+    if(category==='creative') return `Exempel på berättelse: En gång i tiden i en magisk skog...`;
+    if(category==='programming') return `Exempel i JavaScript: console.log('Hej världen!');`;
+    return `Exempel relaterat till ${text}.`;
+  }
 
-// Progressiv skanning stycke för stycke
-async function scanSourceProgressively(src) {
-    appendChat("Skannar: " + (src.query || src.url));
-    let progressContainer = document.getElementById("progressContainer");
-    let progressBar = document.getElementById("progressBar");
-    progressContainer.style.display="block";
+  function aiResponse(userText) {
+    const category = categorizeInput(userText);
+    
+    if(!memory[category][userText]) memory[category][userText] = {count:1, lastResponse:null};
+    else memory[category][userText].count++;
 
-    try {
-        let text="";
-        if(src.type==="wikipedia") {
-            let response = await fetch(`https://sv.wikipedia.org/w/api.php?origin=*&action=query&prop=extracts&format=json&explaintext=&titles=${encodeURIComponent(src.query)}`);
-            let data = await response.json();
-            let pages = data.query.pages;
-            for(let key in pages) text = pages[key].extract || "";
-        } else if(src.type==="book") {
-            let response = await fetch(src.url);
-            text = await response.text();
-        }
+    // Generera svar med exempel
+    let example = generateExample(category, userText);
+    memory[category][userText].lastResponse = example;
+    memory.examples.push(example);
 
-        let paragraphs = text.split("\n\n").filter(p => p.trim()!=="");
-        for(let i=0;i<paragraphs.length;i++){
-            memory.push({source: src.query || src.url, content: paragraphs[i]});
-            localStorage.setItem("aiMemory", JSON.stringify(memory));
-
-            let progressPercent = Math.round(((i+1)/paragraphs.length)*100);
-            progressBar.style.width = progressPercent+"%";
-            progressBar.innerText = progressPercent+"%";
-
-            await new Promise(resolve => setTimeout(resolve,50));
-        }
-        appendChat("Skanning klar: " + (src.query || src.url));
-    } catch(err) {
-        appendChat("Fel vid skanning: " + err);
+    // Personlighet modifier
+    let baseResponse = '';
+    switch(personality){
+      case 'All Vetande':
+        baseResponse = `Jag har analyserat: "${userText}". Här är ett exempel eller förklaring: ${example}`;
+        break;
+      case 'Kreativ':
+        baseResponse = `Fantastiskt! Jag skapar något kring "${userText}": ${example}`;
+        break;
+      case 'Vetenskaplig':
+        baseResponse = `Analys av "${userText}": ${example} Baserat på fakta.`;
+        break;
     }
-    setTimeout(()=>progressContainer.style.display="none",1000);
-}
 
-// Chat-funktion
-function appendChat(text){
-    let chatDiv = document.getElementById("chat");
-    chatDiv.innerHTML += text + "\n\n";
-    chatDiv.scrollTop = chatDiv.scrollHeight;
-    localStorage.setItem("chatHistory", chatDiv.innerHTML);
-}
+    saveMemory();
+    return `[${category}] ${baseResponse}`;
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if(text==='') return;
+    displayMessage('User', text);
+    input.value='';
+    const response = aiResponse(text);
+    displayMessage('AI', response);
+  }
+
+  // --- Personality Switch ---
+  function switchPersonality() {
+    if(personality==='All Vetande') personality='Kreativ';
+    else if(personality==='Kreativ') personality='Vetenskaplig';
+    else personality='All Vetande';
+    displayMessage('System', `AI-personlighet bytt till: ${personality}`);
+  }
+
+  // --- Scan for Smartness ---
+  async function scanForSmartness() {
+    if(scanning) return;
+    scanning = true;
+    displayMessage('System', 'Skanning startad...');
+    const progressBar = document.getElementById('progressBar');
+    let progress = 0;
+
+    while(progress < 100) {
+      await new Promise(r=>setTimeout(r,100));
+      progress += Math.floor(Math.random()*5)+1;
+      if(progress>100) progress=100;
+      progressBar.style.width=progress+'%';
+    }
+
+    // Lägg till “lärda exempel”
+    const simulatedKnowledge = [
+      'Fysik: Newtons lagar',
+      'Historia: Vikingatiden',
+      'Matematik: Pythagoras sats',
+      'Programmering: Loops och funktioner',
+      'Kreativ: Magiska berättelser'
+    ];
+    simulatedKnowledge.forEach(k=>{
+      memory.general[k] = {count:1, lastResponse:`Simulerad kunskap: ${k}`};
+    });
+    saveMemory();
+
+    displayMessage('System','Skanning slutförd. AI har lärt sig nya koncept!');
+    scanning=false;
+    progressBar.style.width='0%';
+  }
+
+  // --- Memory Export/Import ---
+  function exportMemory() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(memory));
+    const dlAnchor = document.createElement('a');
+    dlAnchor.setAttribute("href", dataStr);
+    dlAnchor.setAttribute("download", "aiMemory.json");
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    dlAnchor.remove();
+  }
+
+  function importMemory() {
+    const input = document.createElement('input');
+    input.type='file';
+    input.accept='.json';
+    input.onchange = e=>{
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = event=>{
+        try {
+          memory = JSON.parse(event.target.result);
+          saveMemory();
+          displayMessage('System','Minnet har importerats!');
+        } catch(e){
+          displayMessage('System','Fel vid import!');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
 </script>
 </body>
 </html>
