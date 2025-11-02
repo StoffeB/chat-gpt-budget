@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Random 12-Digit Code Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    button { font-size: 18px; padding: 10px 20px; cursor: pointer; }
+    #code { font-size: 24px; margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Random 12-Digit Code with H, M, L, T</h2>
+  <button onclick="generateCode()">Generate Code</button>
+  <p id="code"></p>
+
+  <script>
+    function generateCode() {
+      const lettersRequired = ['H', 'M', 'L', 'T'];
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = [];
+
+      // Ensure H, M, L, T are included
+      for (let letter of lettersRequired) code.push(letter);
+
+      // Fill the rest with random characters until length = 12
+      while (code.length < 12) {
+        code.push(chars.charAt(Math.floor(Math.random() * chars.length)));
+      }
+
+      // Shuffle the characters
+      code = code.sort(() => Math.random() - 0.5);
+
+      document.getElementById('code').textContent = code.join('');
+    }
+  </script>
+</body>
+</html>
