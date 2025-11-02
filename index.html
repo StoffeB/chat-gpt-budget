@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>AI-klon med lärande</title>
+<title>AI-klon med lärande och historik</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
 #chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
@@ -12,7 +12,7 @@ select { padding: 10px; font-size: 16px; margin-bottom: 10px; width: 100%; }
 </style>
 </head>
 <body>
-<h2>AI-klon med genererade svar och lärande</h2>
+<h2>AI-klon med genererade svar och historik</h2>
 
 <select id="aiSelector" multiple>
   <option value="textAI">TextAI</option>
@@ -53,12 +53,15 @@ const AI_functions = {
   ]
 };
 
+// Konversationens historik
+let conversationHistory = [];
+
 // Slumpmässigt svar
 function getRandomResponse(responses) {
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
-// Hitta matchande svar
+// Generera svar baserat på fråga, AI och historik
 function generateResponse(query, selectedAIs) {
     query = query.toLowerCase();
     const matchedResponses = [];
@@ -71,11 +74,14 @@ function generateResponse(query, selectedAIs) {
         });
     });
 
-    if (matchedResponses.length === 0) {
-        return "Jag är inte säker, men jag kan fortfarande hjälpa inom valda AI-kategorier!";
-    } else {
-        return matchedResponses.join(" ");
+    let response = matchedResponses.length ? matchedResponses.join(" ") : "Jag är inte säker, men jag kan fortfarande hjälpa inom valda AI-kategorier!";
+
+    // Bygg vidare på senaste konversation
+    if (conversationHistory.length > 0) {
+        response += "\n(För att bygga vidare: " + conversationHistory.slice(-1)[0].user + ")";
     }
+
+    return response;
 }
 
 // Skicka meddelande
@@ -87,16 +93,19 @@ function sendMessage() {
 
     if (!input || selectedAIs.length === 0) return;
 
+    conversationHistory.push({user: input, ai: ""});
     chatDiv.innerHTML += `<b>Du:</b> ${input}\n`;
 
     const response = generateResponse(input, selectedAIs);
+    conversationHistory[conversationHistory.length - 1].ai = response;
+
     chatDiv.innerHTML += `<b>AI:</b> ${response}\n`;
 
     document.getElementById("userInput").value = "";
     chatDiv.scrollTop = chatDiv.scrollHeight;
 }
 
-// “Skanna för smarthet” funktion
+// Skanna för smarthet
 function scanForSmartness() {
     const newKnowledge = {
         textAI: [
