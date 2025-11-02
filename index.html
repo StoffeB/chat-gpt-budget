@@ -2,81 +2,69 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>Allvetande AI</title>
+<title>AI Skanner</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-  #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background: #fff; }
-  #input { width: 70%; padding: 10px; }
-  #send { padding: 10px; }
-  #scanBtn, #deepSearchBtn { margin-top: 10px; padding: 10px; background: #4CAF50; color: white; border: none; cursor: pointer; }
-  #progressContainer { width: 100%; background: #ddd; height: 20px; margin-top: 10px; }
-  #progressBar { width: 0%; height: 100%; background: #4CAF50; }
+body { font-family: Arial; margin:20px; background:#f0f0f0; }
+#chat { border:1px solid #ccc; padding:10px; height:300px; overflow-y:auto; background:white; }
+button { margin:5px; padding:10px; }
+#progressContainer { width:100%; background:#ddd; height:20px; margin-top:10px; }
+#progressBar { width:0%; height:100%; background:green; }
 </style>
 </head>
 <body>
 
-<h1>Allvetande AI</h1>
+<h1>AI Skanner</h1>
 
 <div id="chat"></div>
 
-<input id="input" type="text" placeholder="Skriv din fråga här...">
-<button id="send">Skicka</button>
-<br>
+<input type="text" id="userInput" placeholder="Skriv något...">
+<button onclick="sendMessage()">Skicka</button><br>
 
 <button id="scanBtn">Skanna för smarthet</button>
-<div id="progressContainer"><div id="progressBar"></div></div>
+<button id="deepScanBtn">Djup skanning</button>
 
-<br>
-<input id="deepSearchInput" type="text" placeholder="Skriv ämne för djup sökning...">
-<button id="deepSearchBtn">Djup sökning</button>
+<div id="progressContainer">
+  <div id="progressBar"></div>
+</div>
 
 <script>
+let memory = {general:{}}; // AI memory
 let scanning = false;
 
-// Enkel minnesdatabas
-let memory = {general:{}};
-
-// Spara till localStorage
-function saveMemory() {
-  localStorage.setItem('aiMemory', JSON.stringify(memory));
-}
-
-// Läs från localStorage
-function loadMemory() {
-  let stored = localStorage.getItem('aiMemory');
-  if(stored) memory = JSON.parse(stored);
-}
 loadMemory();
+displayMessage('System', 'AI startad. Välj personlighet: All Vetande.');
 
-// Visa meddelande i chatten
-function displayMessage(sender, text){
+// Skicka meddelande
+function sendMessage() {
+  const input = document.getElementById('userInput').value;
+  if(!input) return;
+  displayMessage('Du', input);
+  respond(input);
+  document.getElementById('userInput').value='';
+}
+
+// Visa meddelande i chat
+function displayMessage(sender,text){
   const chat = document.getElementById('chat');
-  const msg = document.createElement('div');
-  msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  chat.appendChild(msg);
+  chat.innerHTML += `<b>${sender}:</b> ${text}<br>`;
   chat.scrollTop = chat.scrollHeight;
 }
 
-// Simulerad AI-svar
-function getResponse(question){
-  for(const key in memory.general){
-    if(question.toLowerCase().includes(key.toLowerCase())){
-      return memory.general[key].lastResponse;
-    }
-  }
-  return "Jag lär mig fortfarande om detta ämne...";
+// AI svar (simulerat)
+function respond(input){
+  let response = memory.general[input] ? memory.general[input].lastResponse : "Jag vet inte, men jag lär mig!";
+  displayMessage('All Vetande', response);
+  // Lägg till input i memory
+  memory.general[input]={count:1,lastResponse:response};
+  saveMemory();
 }
 
-// Skicka fråga
-document.getElementById('send').onclick = ()=>{
-  const input = document.getElementById('input');
-  const question = input.value;
-  if(question.trim()==='') return;
-  displayMessage('Du', question);
-  const answer = getResponse(question);
-  displayMessage('Allvetande', answer);
-  input.value = '';
-};
+// Spara memory i LocalStorage
+function saveMemory(){ localStorage.setItem('aiMemory', JSON.stringify(memory)); }
+function loadMemory(){
+  const saved = localStorage.getItem('aiMemory');
+  if(saved) memory = JSON.parse(saved);
+}
 
 // Skanna för smarthet
 document.getElementById('scanBtn').onclick = scanForSmartness;
@@ -86,88 +74,50 @@ function scanForSmartness() {
   scanning = true;
   displayMessage('System', 'Skanning startad...');
   const progressBar = document.getElementById('progressBar');
-  let progress = 0;
   
+  const simulatedKnowledge = [
+    'Fysik: Newtons lagar',
+    'Historia: Vikingatiden',
+    'Matematik: Pythagoras sats',
+    'Programmering: Loops och funktioner',
+    'Kreativ: Magiska berättelser'
+  ];
+  
+  simulatedKnowledge.forEach(k=>{
+    memory.general[k] = {count:1, lastResponse:`Simulerad kunskap: ${k}`};
+  });
+  saveMemory();
+  progressBar.style.width = '100%';
+  
+  setTimeout(()=>{
+    displayMessage('System','Skanning slutförd. AI har lärt sig nya koncept!');
+    scanning=false;
+    progressBar.style.width='0%';
+  }, 500);
+}
+
+// Djup skanning (simulerad)
+document.getElementById('deepScanBtn').onclick = deepScan;
+
+function deepScan() {
+  if(scanning) return;
+  scanning = true;
+  displayMessage('System','Djup skanning startad. Detta kan ta tid...');
+  const progressBar = document.getElementById('progressBar');
+  let progress=0;
   const interval = setInterval(()=>{
-    progress += 2 + Math.floor(Math.random()*5); 
-    if(progress > 100) progress = 100;
-    progressBar.style.width = progress + '%';
-    
-    if(progress >= 100){
+    progress += 5;
+    progressBar.style.width = progress+'%';
+    displayMessage('System',`Djup skanning: ${progress}%`);
+    if(progress>=100){
       clearInterval(interval);
-      // Lägg till “lärda exempel”
-      const simulatedKnowledge = [
-        'Fysik: Newtons lagar',
-        'Historia: Vikingatiden',
-        'Matematik: Pythagoras sats',
-        'Programmering: Loops och funktioner',
-        'Kreativ: Magiska berättelser'
-      ];
-      simulatedKnowledge.forEach(k=>{
-        memory.general[k] = {count:1, lastResponse:`Simulerad kunskap: ${k}`};
-      });
-      saveMemory();
-      displayMessage('System','Skanning slutförd. AI har lärt sig nya koncept!');
+      displayMessage('System','Djup skanning klar! AI har simulerat att den lärt sig webbdata.');
       scanning=false;
       progressBar.style.width='0%';
     }
-  },100);
+  }, 300); // ökar långsamt för att simulera "lång skanning"
 }
 
-// Djup sökning från flera källor
-async function deepSearchAll(topic){
-  displayMessage('System', `Djup sökning på: ${topic} ...`);
-  
-  const sources = [
-    {name:'Wikipedia', url:`https://sv.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`},
-    {name:'Gutenberg', url:`https://gutendex.com/books/?search=${encodeURIComponent(topic)}`},
-    {name:'OpenStreetMap', url:`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(topic)}&format=json`},
-    {name:'OpenLibrary', url:`https://openlibrary.org/search.json?q=${encodeURIComponent(topic)}`},
-    {name:'NumbersAPI', url:`http://numbersapi.com/${encodeURIComponent(topic)}`},
-    {name:'Wikidata', url:`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(topic)}&language=sv&format=json&origin=*`},
-    {name:'DBpedia', url:`https://dbpedia.org/sparql?query=SELECT+*+WHERE+{?s+rdfs:label+?o}LIMIT+1&format=json`},
-    {name:'Quotes', url:`https://api.quotable.io/search/quotes?query=${encodeURIComponent(topic)}`},
-    {name:'OpenWeather', url:`https://api.open-meteo.com/v1/forecast?latitude=59.3293&longitude=18.0686&hourly=temperature_2m`},
-    {name:'News', url:`https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(topic)}&language=sv&apiKey=demo`} 
-  ];
-  
-  for(const source of sources){
-    try{
-      const res = await fetch(source.url);
-      if(!res.ok) throw new Error(`Fel från ${source.name}`);
-      const data = await res.json();
-      let extract = '';
-      
-      switch(source.name){
-        case 'Wikipedia': extract = data.extract; break;
-        case 'Gutenberg': extract = data.results?.[0]?.title || 'Ingen bok hittades'; break;
-        case 'OpenStreetMap': extract = data[0]?.display_name || 'Ingen plats hittades'; break;
-        case 'OpenLibrary': extract = data.docs?.[0]?.title || 'Ingen bok hittades'; break;
-        case 'NumbersAPI': extract = data; break;
-        case 'Wikidata': extract = data.search?.[0]?.label || 'Ingen data'; break;
-        case 'DBpedia': extract = JSON.stringify(data.results?.bindings?.[0]) || 'Ingen data'; break;
-        case 'Quotes': extract = data.results?.[0]?.content || 'Ingen citat hittades'; break;
-        case 'OpenWeather': extract = 'Väderdata mottagen'; break;
-        case 'News': extract = data.news?.[0]?.title || 'Ingen nyhet hittades'; break;
-        default: extract = 'Ingen data';
-      }
-      
-      displayMessage(`Djup sökning (${source.name})`, extract);
-      memory.general[topic+'-'+source.name] = {count:1, lastResponse: extract};
-      saveMemory();
-    } catch(err){
-      displayMessage('System', `Fel vid ${source.name}: ${err.message}`);
-    }
-  }
-  displayMessage('System','Djup sökning klar och all information lagrad!');
-}
-
-// Koppla knappen
-document.getElementById('deepSearchBtn').onclick = ()=>{
-  const topic = document.getElementById('deepSearchInput').value;
-  if(!topic.trim()) return;
-  deepSearchAll(topic);
-};
 </script>
 
 </body>
