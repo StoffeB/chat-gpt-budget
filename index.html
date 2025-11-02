@@ -1,155 +1,497 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>All Vetande AI – Självlärande</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doom-style Game</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        #chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; }
-        input, button, select { margin: 5px 0; padding: 5px; }
-        hr { margin: 20px 0; }
-        .aiReply { margin-top: 2px; margin-bottom: 10px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #ff0000;
+            overflow: hidden;
+            background: #111;
+        }
+        
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 1px solid #ff0000;
+        }
+        
+        #health-bar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border: 1px solid #fff;
+            margin-bottom: 10px;
+        }
+        
+        #health-fill {
+            height: 100%;
+            background: #ff0000;
+            width: 100%;
+        }
+        
+        #ammo {
+            font-size: 24px;
+            color: #ff0000;
+        }
+        
+        #score {
+            font-size: 24px;
+            color: #ff0000;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 1px solid #ff0000;
+        }
+        
+        #title {
+            font-size: 48px;
+            color: #ff0000;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        #instructions {
+            font-size: 16px;
+            text-align: center;
+            margin-top: 20px;
+            color: #aaa;
+        }
+        
+        .weapon {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background: #333;
+            border: 2px solid #ff0000;
+            z-index: 5;
+        }
+        
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ff0000;
+            z-index: 1;
+        }
+        
+        .crosshair::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: #ff0000;
+        }
+        
+        .enemy {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #ff0000;
+            border: 1px solid #fff;
+            z-index: 2;
+        }
+        
+        .bullet {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #ffff00;
+            z-index: 3;
+        }
+        
+        .explosion {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #ff8800;
+            border-radius: 50%;
+            z-index: 4;
+        }
     </style>
 </head>
 <body>
-    <h1>All Vetande AI – Självlärande</h1>
+    <h1 id="title">DOOM-STYLE GAME</h1>
     
-    <div id="chatBox"></div>
-    <input type="text" id="msgInput" placeholder="Skriv meddelande här">
-    <button id="sendBtn">Skicka</button>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div class="crosshair"></div>
+        <div class="weapon"></div>
+        
+        <div id="ui">
+            <div id="health-bar">
+                <div id="health-fill"></div>
+            </div>
+            <div id="ammo">AMMO: 30</div>
+            <div id="score">SCORE: 0</div>
+        </div>
+        
+        <div id="controls">
+            <p>CONTROLS:</p>
+            <p>WASD - Move | Mouse - Aim | Click - Shoot</p>
+        </div>
+    </div>
     
-    <hr>
-    <h2>Extra AI-Funktioner</h2>
-    <input type="text" id="defineInput" placeholder="Skriv ord/begrepp här">
-    <button id="defineBtn">Definiera</button><br>
-    <input type="text" id="storyInput" placeholder="Skriv ämne/förslag för historia">
-    <button id="storyBtn">Skriv Historia</button><br>
-    <button id="scanBtn">Skanna för smarthet</button>
-    <button id="deepSearchBtn">Djup skanning (en webb per gång)</button>
+    <div id="instructions">
+        <p>Defend against the demons! Shoot them to earn points.</p>
+    </div>
 
-<script>
-// ===== MEMORY OCH PERSONALITET =====
-let memory = JSON.parse(localStorage.getItem('AI_Memory')) || {};
-let currentPersonality = 'All Vetande';
-if (!memory[currentPersonality]) memory[currentPersonality] = {messages: [], Definitions: {}, Stories: {}, RatedReplies: []};
-
-function saveMemory() { localStorage.setItem('AI_Memory', JSON.stringify(memory)); }
-function displayMessage(sender, message, id=null) {
-    const chatBox = document.getElementById('chatBox');
-    const msgDiv = document.createElement('div');
-    msgDiv.innerHTML = `<strong>${sender}:</strong> <span>${message}</span>`;
-    if(id) {
-        const select = document.createElement('select');
-        select.innerHTML = `<option value="">Bedöm AI-svar</option>
-                            <option value="1">1 – Dåligt</option>
-                            <option value="2">2 – Ok</option>
-                            <option value="3">3 – Bra</option>
-                            <option value="4">4 – Mycket bra</option>
-                            <option value="5">5 – Perfekt</option>`;
-        select.onchange = () => {
-            let rating = parseInt(select.value);
-            memory[currentPersonality].RatedReplies.push({id, rating, message});
-            saveMemory();
-            select.disabled = true;
+    <script>
+        // Game variables
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const healthFill = document.getElementById('health-fill');
+        const ammoDisplay = document.getElementById('ammo');
+        const scoreDisplay = document.getElementById('score');
+        
+        // Set canvas size
+        canvas.width = 800;
+        canvas.height = 600;
+        
+        // Player state
+        let player = {
+            x: 400,
+            y: 300,
+            angle: 0,
+            health: 100,
+            ammo: 30,
+            score: 0
         };
-        msgDiv.appendChild(select);
-    }
-    chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// ===== LÄRA SIG FRÅN ALLT =====
-function learnFromMessage(message) {
-    memory[currentPersonality].messages.push(message);
-    saveMemory();
-}
-
-// ===== SMARTARE SVAR MED BEDÖMNINGAR =====
-function generateSmartReply(userMessage) {
-    // Samla tidigare högpoängade svar
-    const goodReplies = memory[currentPersonality].RatedReplies
-                        .filter(r => r.rating >= 4)
-                        .map(r => r.message)
-                        .join(' ');
-    
-    let combinedMemory = memory[currentPersonality].messages.join(' ');
-    let definitions = Object.keys(memory[currentPersonality].Definitions).map(k => `${k}: ${memory[currentPersonality].Definitions[k]}`).join('. ');
-    let stories = Object.keys(memory[currentPersonality].Stories).map(k => `${k}: ${memory[currentPersonality].Stories[k]}`).join('. ');
-
-    let reply = `Utifrån min inlärning: "${userMessage}"\n`;
-    if (definitions) reply += `Kända definitioner: ${definitions}\n`;
-    if (stories) reply += `Tidigare historier: ${stories}\n`;
-    if (goodReplies) reply += `Tidigare högpoängade svar som referens: ${goodReplies.slice(-200)}\n`;
-    reply += `Övriga meddelanden jag minns: ${combinedMemory.slice(-200)}...`; 
-    return reply;
-}
-
-// ===== AUTOMATISKA HISTORIER =====
-function processMessageAutomatically(message) {
-    const lowerMsg = message.toLowerCase();
-    if (lowerMsg.includes("berätta") || lowerMsg.includes("skriv") || lowerMsg.includes("historia") || lowerMsg.includes("story")) {
-        const topic = message;
-        const story = `Historia om "${topic}": En berättelse baserad på AI-lärande från dina tidigare meddelanden.`;
-        memory[currentPersonality]['Stories'][topic] = story;
-        saveMemory();
-        displayMessage(currentPersonality, story);
-    }
-}
-
-// ===== CHATT =====
-document.getElementById('sendBtn').onclick = () => {
-    const msgInput = document.getElementById('msgInput');
-    const msg = msgInput.value.trim();
-    if (!msg) return;
-
-    displayMessage('Du', msg);
-    learnFromMessage(msg);
-    processMessageAutomatically(msg);
-    msgInput.value = '';
-
-    const aiReply = generateSmartReply(msg);
-    const replyID = Date.now(); // unikt id
-    displayMessage(currentPersonality, aiReply, replyID);
-    learnFromMessage(aiReply);
-};
-
-// ===== DEFINIERA =====
-document.getElementById('defineBtn').onclick = () => {
-    const term = document.getElementById('defineInput').value.trim();
-    if (!term) return;
-    const definition = `Definition av "${term}": Simulerad förklaring baserat på allt AI har lärt sig.`;
-    memory[currentPersonality]['Definitions'][term] = definition;
-    saveMemory();
-    displayMessage(currentPersonality, definition);
-    document.getElementById('defineInput').value = '';
-};
-
-// ===== SKRIV HISTORIA =====
-document.getElementById('storyBtn').onclick = () => {
-    const topic = document.getElementById('storyInput').value.trim();
-    if (!topic) return;
-    const story = `Historia om "${topic}": En simulerad berättelse baserad på allt AI har lärt sig.`;
-    memory[currentPersonality]['Stories'][topic] = story;
-    saveMemory();
-    displayMessage(currentPersonality, story);
-    document.getElementById('storyInput').value = '';
-};
-
-// ===== SKANNA FÖR SMARTHET =====
-document.getElementById('scanBtn').onclick = () => {
-    displayMessage(currentPersonality, "Skanning pågår... Simulerar inlärning från internet och dina meddelanden...");
-    setTimeout(() => {
-        displayMessage(currentPersonality, "Skanning klar. AI har uppdaterat sin kunskap baserat på allt tillgängligt (simulerat).");
-    }, 4000);
-};
-
-// ===== DJUP SKANNING =====
-document.getElementById('deepSearchBtn').onclick = () => {
-    displayMessage(currentPersonality, "Djup skanning pågår... Skannar en webbplats i taget (simulerad)...");
-    setTimeout(() => {
-        displayMessage(currentPersonality, "Djup skanning klar. AI har analyserat sidan och uppdaterat sin kunskap.");
-    }, 4000);
-};
-</script>
+        
+        // Game objects
+        let enemies = [];
+        let bullets = [];
+        let explosions = [];
+        
+        // Game settings
+        const enemySpeed = 1.5;
+        const bulletSpeed = 10;
+        const spawnRate = 0.02; // Chance to spawn enemy per frame
+        
+        // Initialize game
+        function init() {
+            // Create initial enemies
+            for (let i = 0; i < 5; i++) {
+                spawnEnemy();
+            }
+            
+            // Set up event listeners
+            setupControls();
+            
+            // Start game loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Spawn enemy at random position
+        function spawnEnemy() {
+            const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+            
+            let x, y;
+            switch(side) {
+                case 0: // top
+                    x = Math.random() * canvas.width;
+                    y = -30;
+                    break;
+                case 1: // right
+                    x = canvas.width + 30;
+                    y = Math.random() * canvas.height;
+                    break;
+                case 2: // bottom
+                    x = Math.random() * canvas.width;
+                    y = canvas.height + 30;
+                    break;
+                case 3: // left
+                    x = -30;
+                    y = Math.random() * canvas.height;
+                    break;
+            }
+            
+            enemies.push({
+                x: x,
+                y: y,
+                health: 100,
+                speed: enemySpeed + Math.random() * 0.5
+            });
+        }
+        
+        // Setup controls
+        function setupControls() {
+            // Mouse movement for aiming
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Calculate angle to mouse position
+                player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+            });
+            
+            // Shooting with mouse click
+            canvas.addEventListener('click', () => {
+                if (player.ammo > 0) {
+                    shoot();
+                }
+            });
+            
+            // Keyboard controls for movement
+            document.addEventListener('keydown', (e) => {
+                switch(e.key) {
+                    case 'w':
+                    case 'W':
+                        player.y -= 5;
+                        break;
+                    case 's':
+                    case 'S':
+                        player.y += 5;
+                        break;
+                    case 'a':
+                    case 'A':
+                        player.x -= 5;
+                        break;
+                    case 'd':
+                    case 'D':
+                        player.x += 5;
+                        break;
+                }
+                
+                // Keep player within bounds
+                player.x = Math.max(0, Math.min(canvas.width, player.x));
+                player.y = Math.max(0, Math.min(canvas.height, player.y));
+            });
+        }
+        
+        // Shoot bullet
+        function shoot() {
+            player.ammo--;
+            ammoDisplay.textContent = `AMMO: ${player.ammo}`;
+            
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                angle: player.angle,
+                speed: bulletSpeed
+            });
+        }
+        
+        // Update game state
+        function update() {
+            // Spawn enemies randomly
+            if (Math.random() < spawnRate) {
+                spawnEnemy();
+            }
+            
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                
+                // Move bullet
+                bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                
+                // Remove if out of bounds
+                if (bullet.x < 0 || bullet.x > canvas.width || 
+                    bullet.y < 0 || bullet.y > canvas.height) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Check for collisions with enemies
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    
+                    // Simple distance check
+                    const dx = bullet.x - enemy.x;
+                    const dy = bullet.y - enemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 20) {
+                        // Hit enemy
+                        enemy.health -= 25;
+                        
+                        // Create explosion effect
+                        explosions.push({
+                            x: enemy.x,
+                            y: enemy.y,
+                            size: 10,
+                            life: 30
+                        });
+                        
+                        // Remove bullet and enemy if dead
+                        bullets.splice(i, 1);
+                        if (enemy.health <= 0) {
+                            enemies.splice(j, 1);
+                            player.score += 10;
+                            scoreDisplay.textContent = `SCORE: ${player.score}`;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                
+                // Move towards player
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    enemy.x += (dx / distance) * enemy.speed;
+                    enemy.y += (dy / distance) * enemy.speed;
+                }
+                
+                // Check collision with player
+                if (distance < 30) {
+                    player.health -= 1;
+                    healthFill.style.width = `${player.health}%`;
+                    
+                    // Create explosion effect
+                    explosions.push({
+                        x: player.x,
+                        y: player.y,
+                        size: 20,
+                        life: 30
+                    });
+                    
+                    // Remove enemy
+                    enemies.splice(i, 1);
+                }
+            }
+            
+            // Update explosions
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                const explosion = explosions[i];
+                explosion.life--;
+                
+                if (explosion.life <= 0) {
+                    explosions.splice(i, 1);
+                }
+            }
+            
+            // Check game over
+            if (player.health <= 0) {
+                alert("GAME OVER! Your score: " + player.score);
+                location.reload();
+            }
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw floor (simple gradient)
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#222');
+            gradient.addColorStop(1, '#333');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw enemies
+            for (const enemy of enemies) {
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw enemy eyes
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(enemy.x - 5, enemy.y - 5, 3, 0, Math.PI * 2);
+                ctx.arc(enemy.x + 5, enemy.y - 5, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw bullets
+            for (const bullet of bullets) {
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw explosions
+            for (const explosion of explosions) {
+                ctx.fillStyle = `rgba(255, 136, 0, ${explosion.life / 30})`;
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw player (simple representation)
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw weapon
+            const weapon = document.querySelector('.weapon');
+            weapon.style.left = `${player.x - 50}px`;
+            weapon.style.top = `${player.y - 50}px`;
+        }
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game
+        init();
+    </script>
 </body>
 </html>
