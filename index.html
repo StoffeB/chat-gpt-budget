@@ -2,17 +2,18 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>All vetande AI-klon</title>
+<title>All vetande AI-klon med Lär-läge</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
 #chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
 input { padding: 10px; width: 60%; font-size: 16px; }
 button { padding: 10px 20px; font-size: 16px; margin-left: 10px; cursor: pointer; margin-bottom: 10px; }
 select { padding: 10px; font-size: 16px; margin-bottom: 10px; width: 100%; }
+#learnModeIndicator { margin-left: 10px; font-weight: bold; color: green; }
 </style>
 </head>
 <body>
-<h2>All vetande AI-klon</h2>
+<h2>All vetande AI-klon (Smart + Lär-läge + Local Storage)</h2>
 
 <select id="aiSelector" multiple>
   <option value="textAI">TextAI</option>
@@ -27,119 +28,79 @@ select { padding: 10px; font-size: 16px; margin-bottom: 10px; width: 100%; }
 <input type="text" id="userInput" placeholder="Skriv din fråga..." />
 <button onclick="sendMessage()">Skicka</button>
 <button onclick="scanForSmartness()">Skanna för smarthet</button>
+<button id="learnModeBtn" onclick="toggleLearnMode()">Lär-läge: AV</button>
+<span id="learnModeIndicator"></span>
 
 <script>
-// AI-funktioner
-const AI_functions = {
-  textAI: [
-    {keywords: ["fråga","information","ämne"], responses: ["Jag kan ge information om många ämnen.","Berätta mer om vad du vill veta så hjälper jag dig."]},
-    {keywords: ["förklara","koncept","idé"], responses: ["Jag kan bryta ner komplexa idéer på ett enkelt sätt.","Låt mig förklara steg för steg."]},
-    {keywords: ["översätta","språk"], responses: ["Jag kan översätta mellan svenska, engelska och spanska.","Vilket språk vill du översätta till?"]},
-    {keywords: ["sammanfatta","text"], responses: ["Jag kan korta ner texten eller artikeln åt dig.","Här är en sammanfattning:"]}
-  ],
-  codeAI: [
-    {keywords: ["kod","programmera","python","javascript","html"], responses: ["Jag kan skriva kodexempel i Python, JavaScript eller HTML.","Här är ett exempel på kod som kan hjälpa dig."]},
-    {keywords: ["felsök","bugg"], responses: ["Låt oss hitta felet i din kod tillsammans.","Jag kan ge förslag på hur du kan fixa buggen."]},
-    {keywords: ["diagram","visualisering"], responses: ["Jag kan generera textbaserade diagram eller dataexempel.","Här är ett exempel på hur du kan visualisera data."]}
-  ],
-  creativeAI: [
-    {keywords: ["idé","story","historia","berättelse"], responses: ["Jag kan generera idéer för projekt eller historier.","Här är ett kreativt förslag:"]},
-    {keywords: ["poesi","rap","lyrik"], responses: ["Jag kan skriva poesi eller lyrik åt dig.","Här är ett exempel på en dikt:"]},
-    {keywords: ["dialog","karaktär"], responses: ["Jag kan simulera olika karaktärer i en dialog.","Här är ett exempel på en konversation:"]}
-  ],
-  healthAI: [
-    {keywords: ["träning","hälsa","fitness"], responses: ["Jag kan ge allmänna hälso- och träningstips.","Här är några tips för att må bättre:"]},
-    {keywords: ["matlagning","nutrition","recept"], responses: ["Jag kan ge tips om matlagning och nutrition.","Här är ett förslag på recept:"]},
-    {keywords: ["mindfulness","motivation"], responses: ["Jag kan ge tips om mental träning och motivation.","Prova denna övning för mindfulness:"]}
-  ],
-  allKnowingAI: [] // fylls dynamiskt
-};
+let chatDiv = document.getElementById("chat");
+let userInput = document.getElementById("userInput");
+let learnMode = false;
 
-// Historik och lärande
-let conversationHistory = [];
-let learnedKnowledge = []; // lagrar nya nyckelord och svar
+// Läs chat, lär-läge och AI-minne från Local Storage
+let memory = JSON.parse(localStorage.getItem("aiMemory") || "[]");
 
-function updateAllKnowingAI() {
-  AI_functions.allKnowingAI = [];
-  for (const aiType in AI_functions) {
-    if (aiType !== "allKnowingAI") {
-      AI_functions.allKnowingAI = AI_functions.allKnowingAI.concat(AI_functions[aiType]);
-    }
-  }
-  // Lägg till lärd kunskap
-  AI_functions.allKnowingAI = AI_functions.allKnowingAI.concat(learnedKnowledge);
+if(localStorage.getItem("chatHistory")) {
+    chatDiv.innerHTML = localStorage.getItem("chatHistory");
+}
+if(localStorage.getItem("learnMode") === "true") {
+    learnMode = true;
+    document.getElementById("learnModeBtn").innerText = "Lär-läge: PÅ";
+    document.getElementById("learnModeIndicator").innerText = "Lär-läge aktiverat";
 }
 
-// Slumpmässigt svar
-function getRandomResponse(responses) {
-  return responses[Math.floor(Math.random()*responses.length)];
+// Spara chat
+function saveChat() {
+    localStorage.setItem("chatHistory", chatDiv.innerHTML);
 }
 
-// Generera svar
-function generateResponse(query, selectedAIs) {
-  query = query.toLowerCase();
-  const matchedResponses = [];
-
-  selectedAIs.forEach(aiType => {
-    AI_functions[aiType].forEach(item => {
-      if(item.keywords.length === 0 || item.keywords.some(k => query.includes(k))){
-        matchedResponses.push(getRandomResponse(item.responses));
-      }
-    });
-  });
-
-  // Om ingen matchning, AI försöker lära sig
-  if(matchedResponses.length === 0) {
-    const newResponse = "All vetande lär sig om detta: " + query;
-    learnedKnowledge.push({keywords: query.split(" "), responses: [newResponse]});
-    matchedResponses.push(newResponse);
-  }
-
-  let response = matchedResponses.join(" ");
-
-  // Fortsätt på tidigare konversation
-  if(conversationHistory.length > 0){
-    response += "\n(Tidigare: " + conversationHistory.slice(-1)[0].user + ")";
-  }
-
-  return response;
+// Toggle lär-läge
+function toggleLearnMode() {
+    learnMode = !learnMode;
+    document.getElementById("learnModeBtn").innerText = learnMode ? "Lär-läge: PÅ" : "Lär-läge: AV";
+    document.getElementById("learnModeIndicator").innerText = learnMode ? "Lär-läge aktiverat" : "";
+    localStorage.setItem("learnMode", learnMode);
 }
 
 // Skicka meddelande
 function sendMessage() {
-  const input = document.getElementById("userInput").value.trim();
-  const aiSelector = document.getElementById("aiSelector");
-  const selectedAIs = Array.from(aiSelector.selectedOptions).map(o=>o.value);
-  const chatDiv = document.getElementById("chat");
-
-  if(!input || selectedAIs.length === 0) return;
-
-  updateAllKnowingAI();
-
-  conversationHistory.push({user: input, ai: ""});
-  chatDiv.innerHTML += `<b>Du:</b> ${input}\n`;
-
-  const response = generateResponse(input, selectedAIs);
-  conversationHistory[conversationHistory.length-1].ai = response;
-
-  chatDiv.innerHTML += `<b>AI:</b> ${response}\n`;
-  document.getElementById("userInput").value = "";
-  chatDiv.scrollTop = chatDiv.scrollHeight;
+    let msg = userInput.value;
+    if(msg.trim() === "") return;
+    appendChat("Du: " + msg);
+    let response = generateResponse(msg);
+    appendChat("All vetande AI: " + response);
+    userInput.value = "";
 }
 
-// Skanna och lär AI
-function scanForSmartness() {
-  alert("AI:n analyserar internet (simulerat) och lär sig nya saker...");
-  const newKnowledge = [
-    {keywords:["universum","värld"], responses:["Universum är över 13 miljarder år gammalt.","Det finns miljarder stjärnor i vår galax."]},
-    {keywords:["loop","funktion"], responses:["Skriv tydliga funktioner!","Loops kan optimeras."]},
-    {keywords:["dröm","konst"], responses:["Låt kreativiteten flöda och prova nya konststilar.","Drömmar kan inspirera till berättelser."]},
-    {keywords:["sömn","vila"], responses:["Sömn är viktigt för hjärnan och kroppen.","Att vila ordentligt förbättrar fokus och energi."]}
-  ];
+// Append till chat och spara
+function appendChat(text) {
+    chatDiv.innerHTML += text + "\n\n";
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+    saveChat();
+}
 
-  learnedKnowledge = learnedKnowledge.concat(newKnowledge);
-  updateAllKnowingAI();
-  alert("All vetande har nu blivit mycket smartare!");
+// Generera svar med minne
+function generateResponse(input) {
+    // Leta efter tidigare liknande frågor i minnet
+    let found = memory.find(item => item.question.toLowerCase() === input.toLowerCase());
+    if(found) {
+        return "Jag minns detta: " + found.answer;
+    }
+
+    // Om inget minne, skapa generiskt svar
+    let genericAnswer = "Jag har lärt mig om '" + input + "' och kan ge svar här. (Exempel-svar)";
+
+    // Lär-läge: spara input och svar i minnet
+    if(learnMode) {
+        memory.push({question: input, answer: genericAnswer});
+        localStorage.setItem("aiMemory", JSON.stringify(memory));
+    }
+
+    return genericAnswer;
+}
+
+// Skanna för smarthet (placeholder)
+function scanForSmartness() {
+    appendChat("Skannar internet för smarthet... (detta är en demo, ingen riktig sökning utförs)");
 }
 </script>
 </body>
