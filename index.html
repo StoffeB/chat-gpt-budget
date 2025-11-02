@@ -1,50 +1,123 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>ChatGPT Clone 2000 Lines</title>
+<title>AI-klon med lärande</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 500px; overflow-y: scroll; background: #fff; }
-input { padding: 10px; width: 80%; font-size: 16px; }
-button { padding: 10px 20px; font-size: 16px; }
+#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
+input { padding: 10px; width: 60%; font-size: 16px; }
+button { padding: 10px 20px; font-size: 16px; margin-left: 10px; cursor: pointer; margin-bottom: 10px; }
+select { padding: 10px; font-size: 16px; margin-bottom: 10px; width: 100%; }
 </style>
 </head>
 <body>
-<h2>ChatGPT Clone 2000 Lines</h2>
+<h2>AI-klon med genererade svar och lärande</h2>
+
+<select id="aiSelector" multiple>
+  <option value="textAI">TextAI</option>
+  <option value="codeAI">KodAI</option>
+  <option value="creativeAI">KreativAI</option>
+  <option value="healthAI">HälsaAI</option>
+</select>
+
 <div id="chat"></div>
-<input type="text" id="userInput" placeholder="Type something..." />
-<button onclick="sendMessage()">Send</button>
+
+<input type="text" id="userInput" placeholder="Skriv din fråga..." />
+<button onclick="sendMessage()">Skicka</button>
+<button onclick="scanForSmartness()">Skanna för smarthet</button>
 
 <script>
-// "Knowledge base" with thousands of entries
-const responses = {
-    "hej": "Hej! Hur mår du?",
-    "tips": "Kommentera alltid din kod och välj tydliga variabelnamn.",
-    "python": "Python är enkelt och läsbart, perfekt för nybörjare.",
-    "javascript": "JavaScript körs i webbläsaren och används för dynamiska webbsidor.",
-    "html": "HTML används för att strukturera innehållet på webbsidor."
+// AI-databas med nyckelord och svar
+const AI_functions = {
+  textAI: [
+    {keywords: ["fråga", "information", "ämne"], responses: ["Jag kan ge information om många ämnen.", "Berätta mer om vad du vill veta så hjälper jag dig."]},
+    {keywords: ["förklara", "koncept", "idé"], responses: ["Jag kan bryta ner komplexa idéer på ett enkelt sätt.", "Låt mig förklara steg för steg."]},
+    {keywords: ["översätta", "språk"], responses: ["Jag kan översätta mellan svenska, engelska och spanska.", "Vilket språk vill du översätta till?"]},
+    {keywords: ["sammanfatta", "text"], responses: ["Jag kan korta ner texten eller artikeln åt dig.", "Här är en sammanfattning:"]}
+  ],
+  codeAI: [
+    {keywords: ["kod", "programmera", "python", "javascript", "html"], responses: ["Jag kan skriva kodexempel i Python, JavaScript eller HTML.", "Här är ett exempel på kod som kan hjälpa dig."]},
+    {keywords: ["felsök", "bugg"], responses: ["Låt oss hitta felet i din kod tillsammans.", "Jag kan ge förslag på hur du kan fixa buggen."]},
+    {keywords: ["diagram", "visualisering"], responses: ["Jag kan generera textbaserade diagram eller dataexempel.", "Här är ett exempel på hur du kan visualisera data."]}
+  ],
+  creativeAI: [
+    {keywords: ["idé", "story", "historia", "berättelse"], responses: ["Jag kan generera idéer för projekt eller historier.", "Här är ett kreativt förslag:"]},
+    {keywords: ["poesi", "rap", "lyrik"], responses: ["Jag kan skriva poesi eller lyrik åt dig.", "Här är ett exempel på en dikt:"]},
+    {keywords: ["dialog", "karaktär"], responses: ["Jag kan simulera olika karaktärer i en dialog.", "Här är ett exempel på en konversation:"]}
+  ],
+  healthAI: [
+    {keywords: ["träning", "hälsa", "fitness"], responses: ["Jag kan ge allmänna hälso- och träningstips.", "Här är några tips för att må bättre:"]},
+    {keywords: ["matlagning", "nutrition", "recept"], responses: ["Jag kan ge tips om matlagning och nutrition.", "Här är ett förslag på recept:"]},
+    {keywords: ["mindfulness", "motivation"], responses: ["Jag kan ge tips om mental träning och motivation.", "Prova denna övning för mindfulness:"]}
+  ]
 };
 
-// Generate more entries to reach ~2000 lines
-for (let i = 1; i <= 1995; i++) {
-    responses["fraga" + i] = "Svar på fråga " + i + ". Detta är en automatisk genererad rad för att öka antalet rader i koden.";
+// Slumpmässigt svar
+function getRandomResponse(responses) {
+    return responses[Math.floor(Math.random() * responses.length)];
 }
 
-// Default response
-const defaultResponse = "Jag förstår inte. Prova 'hej', 'tips', 'python', 'javascript', 'html', eller 'fraga1' till 'fraga1995'.";
+// Hitta matchande svar
+function generateResponse(query, selectedAIs) {
+    query = query.toLowerCase();
+    const matchedResponses = [];
 
+    selectedAIs.forEach(aiType => {
+        AI_functions[aiType].forEach(item => {
+            if (item.keywords.some(k => query.includes(k))) {
+                matchedResponses.push(getRandomResponse(item.responses));
+            }
+        });
+    });
+
+    if (matchedResponses.length === 0) {
+        return "Jag är inte säker, men jag kan fortfarande hjälpa inom valda AI-kategorier!";
+    } else {
+        return matchedResponses.join(" ");
+    }
+}
+
+// Skicka meddelande
 function sendMessage() {
-    const input = document.getElementById("userInput").value.toLowerCase().trim();
+    const input = document.getElementById("userInput").value.trim();
+    const aiSelector = document.getElementById("aiSelector");
+    const selectedAIs = Array.from(aiSelector.selectedOptions).map(option => option.value);
     const chatDiv = document.getElementById("chat");
 
-    // Lookup response in object (no if/else needed)
-    const reply = responses[input] || defaultResponse;
+    if (!input || selectedAIs.length === 0) return;
 
-    chatDiv.textContent += "Du: " + input + "\\n";
-    chatDiv.textContent += "Bot: " + reply + "\\n\\n";
+    chatDiv.innerHTML += `<b>Du:</b> ${input}\n`;
+
+    const response = generateResponse(input, selectedAIs);
+    chatDiv.innerHTML += `<b>AI:</b> ${response}\n`;
+
     document.getElementById("userInput").value = "";
     chatDiv.scrollTop = chatDiv.scrollHeight;
+}
+
+// “Skanna för smarthet” funktion
+function scanForSmartness() {
+    const newKnowledge = {
+        textAI: [
+            {keywords: ["värld", "universum"], responses: ["Visste du att universum är över 13 miljarder år gammalt?", "Det finns miljarder stjärnor i vår galax."]}
+        ],
+        codeAI: [
+            {keywords: ["loop", "funktion"], responses: ["Kom ihåg att alltid skriva tydliga funktioner!", "Loops kan optimeras för bättre prestanda."]}
+        ],
+        creativeAI: [
+            {keywords: ["dröm", "konst"], responses: ["Låt kreativiteten flöda och prova nya konststilar.", "Drömmar kan inspirera till fantastiska berättelser."]}
+        ],
+        healthAI: [
+            {keywords: ["sömn", "vila"], responses: ["Sömn är viktigt för hjärnan och kroppen.", "Att vila ordentligt förbättrar fokus och energi."]}
+        ]
+    };
+
+    for (const aiType in newKnowledge) {
+        AI_functions[aiType] = AI_functions[aiType].concat(newKnowledge[aiType]);
+    }
+
+    alert("AI:n har skannat och lärt sig nya saker! Nu kan den svara ännu smartare.");
 }
 </script>
 </body>
