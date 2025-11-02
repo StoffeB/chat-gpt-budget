@@ -2,16 +2,17 @@
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
-    <title>All Vetande AI</title>
+    <title>All Vetande AI – Självlärande</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         #chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; }
-        input, button { margin: 5px 0; padding: 5px; }
+        input, button, select { margin: 5px 0; padding: 5px; }
         hr { margin: 20px 0; }
+        .aiReply { margin-top: 2px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h1>All Vetande AI</h1>
+    <h1>All Vetande AI – Självlärande</h1>
     
     <div id="chatBox"></div>
     <input type="text" id="msgInput" placeholder="Skriv meddelande här">
@@ -19,18 +20,10 @@
     
     <hr>
     <h2>Extra AI-Funktioner</h2>
-
-    <!-- Definiera -->
     <input type="text" id="defineInput" placeholder="Skriv ord/begrepp här">
-    <button id="defineBtn">Definiera</button>
-    <br>
-    
-    <!-- Skriv historia -->
+    <button id="defineBtn">Definiera</button><br>
     <input type="text" id="storyInput" placeholder="Skriv ämne/förslag för historia">
-    <button id="storyBtn">Skriv Historia</button>
-    <br>
-
-    <!-- Skanna och Deep Search -->
+    <button id="storyBtn">Skriv Historia</button><br>
     <button id="scanBtn">Skanna för smarthet</button>
     <button id="deepSearchBtn">Djup skanning (en webb per gång)</button>
 
@@ -38,16 +31,29 @@
 // ===== MEMORY OCH PERSONALITET =====
 let memory = JSON.parse(localStorage.getItem('AI_Memory')) || {};
 let currentPersonality = 'All Vetande';
-if (!memory[currentPersonality]) memory[currentPersonality] = {messages: [], Definitions: {}, Stories: {}};
+if (!memory[currentPersonality]) memory[currentPersonality] = {messages: [], Definitions: {}, Stories: {}, RatedReplies: []};
 
-function saveMemory() {
-    localStorage.setItem('AI_Memory', JSON.stringify(memory));
-}
-
-function displayMessage(sender, message) {
+function saveMemory() { localStorage.setItem('AI_Memory', JSON.stringify(memory)); }
+function displayMessage(sender, message, id=null) {
     const chatBox = document.getElementById('chatBox');
     const msgDiv = document.createElement('div');
-    msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+    msgDiv.innerHTML = `<strong>${sender}:</strong> <span>${message}</span>`;
+    if(id) {
+        const select = document.createElement('select');
+        select.innerHTML = `<option value="">Bedöm AI-svar</option>
+                            <option value="1">1 – Dåligt</option>
+                            <option value="2">2 – Ok</option>
+                            <option value="3">3 – Bra</option>
+                            <option value="4">4 – Mycket bra</option>
+                            <option value="5">5 – Perfekt</option>`;
+        select.onchange = () => {
+            let rating = parseInt(select.value);
+            memory[currentPersonality].RatedReplies.push({id, rating, message});
+            saveMemory();
+            select.disabled = true;
+        };
+        msgDiv.appendChild(select);
+    }
     chatBox.appendChild(msgDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -56,6 +62,26 @@ function displayMessage(sender, message) {
 function learnFromMessage(message) {
     memory[currentPersonality].messages.push(message);
     saveMemory();
+}
+
+// ===== SMARTARE SVAR MED BEDÖMNINGAR =====
+function generateSmartReply(userMessage) {
+    // Samla tidigare högpoängade svar
+    const goodReplies = memory[currentPersonality].RatedReplies
+                        .filter(r => r.rating >= 4)
+                        .map(r => r.message)
+                        .join(' ');
+    
+    let combinedMemory = memory[currentPersonality].messages.join(' ');
+    let definitions = Object.keys(memory[currentPersonality].Definitions).map(k => `${k}: ${memory[currentPersonality].Definitions[k]}`).join('. ');
+    let stories = Object.keys(memory[currentPersonality].Stories).map(k => `${k}: ${memory[currentPersonality].Stories[k]}`).join('. ');
+
+    let reply = `Utifrån min inlärning: "${userMessage}"\n`;
+    if (definitions) reply += `Kända definitioner: ${definitions}\n`;
+    if (stories) reply += `Tidigare historier: ${stories}\n`;
+    if (goodReplies) reply += `Tidigare högpoängade svar som referens: ${goodReplies.slice(-200)}\n`;
+    reply += `Övriga meddelanden jag minns: ${combinedMemory.slice(-200)}...`; 
+    return reply;
 }
 
 // ===== AUTOMATISKA HISTORIER =====
@@ -81,8 +107,9 @@ document.getElementById('sendBtn').onclick = () => {
     processMessageAutomatically(msg);
     msgInput.value = '';
 
-    const aiReply = `AI svar baserat på tidigare meddelanden: "${msg}" (simulerat svar)`;
-    displayMessage(currentPersonality, aiReply);
+    const aiReply = generateSmartReply(msg);
+    const replyID = Date.now(); // unikt id
+    displayMessage(currentPersonality, aiReply, replyID);
     learnFromMessage(aiReply);
 };
 
@@ -90,7 +117,7 @@ document.getElementById('sendBtn').onclick = () => {
 document.getElementById('defineBtn').onclick = () => {
     const term = document.getElementById('defineInput').value.trim();
     if (!term) return;
-    const definition = `Definition av "${term}": Simulerad förklaring baserad på AI-lärande.`;
+    const definition = `Definition av "${term}": Simulerad förklaring baserat på allt AI har lärt sig.`;
     memory[currentPersonality]['Definitions'][term] = definition;
     saveMemory();
     displayMessage(currentPersonality, definition);
@@ -101,7 +128,7 @@ document.getElementById('defineBtn').onclick = () => {
 document.getElementById('storyBtn').onclick = () => {
     const topic = document.getElementById('storyInput').value.trim();
     if (!topic) return;
-    const story = `Historia om "${topic}": En simulerad berättelse baserad på AI-lärande.`;
+    const story = `Historia om "${topic}": En simulerad berättelse baserad på allt AI har lärt sig.`;
     memory[currentPersonality]['Stories'][topic] = story;
     saveMemory();
     displayMessage(currentPersonality, story);
@@ -110,18 +137,18 @@ document.getElementById('storyBtn').onclick = () => {
 
 // ===== SKANNA FÖR SMARTHET =====
 document.getElementById('scanBtn').onclick = () => {
-    displayMessage(currentPersonality, "Skanning pågår... Simulerar inlärning från internet (kan ta tid)...");
+    displayMessage(currentPersonality, "Skanning pågår... Simulerar inlärning från internet och dina meddelanden...");
     setTimeout(() => {
-        displayMessage(currentPersonality, "Skanning klar. AI har lärt sig nya koncept baserat på simulering.");
-    }, 3000); // simulerad delay
+        displayMessage(currentPersonality, "Skanning klar. AI har uppdaterat sin kunskap baserat på allt tillgängligt (simulerat).");
+    }, 4000);
 };
 
 // ===== DJUP SKANNING =====
 document.getElementById('deepSearchBtn').onclick = () => {
     displayMessage(currentPersonality, "Djup skanning pågår... Skannar en webbplats i taget (simulerad)...");
     setTimeout(() => {
-        displayMessage(currentPersonality, "Djup skanning klar. AI har analyserat sidan.");
-    }, 3000);
+        displayMessage(currentPersonality, "Djup skanning klar. AI har analyserat sidan och uppdaterat sin kunskap.");
+    }, 4000);
 };
 </script>
 </body>
