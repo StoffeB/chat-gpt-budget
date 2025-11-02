@@ -1,130 +1,113 @@
-<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>All vetande AI – Fullständig lär-läge</title>
+<title>All Vetande AI</title>
 <style>
-body { font-family: Arial; background: #f9f9f9; padding: 20px; }
-#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
-input { padding: 10px; width: 60%; font-size: 16px; }
-button { padding: 10px 20px; font-size: 16px; margin-left: 10px; cursor: pointer; margin-bottom: 10px; }
-#progressContainer { width: 100%; background: #ddd; margin-top: 10px; height: 20px; display: none; }
-#progressBar { width: 0%; height: 100%; background: green; text-align: center; color: white; }
+body { font-family: Arial, sans-serif; margin: 20px; }
+#chat { width: 100%; height: 300px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; white-space: pre-wrap; background:#f9f9f9;}
+#progressContainer { width: 100%; background: #ddd; height: 25px; display: none; margin-top: 10px; }
+#progressBar { width: 0%; height: 100%; background: #4caf50; text-align:center; color:white; }
 </style>
 </head>
 <body>
-<h2>All vetande AI – Fullständig lär-läge</h2>
-<div id="chat"></div>
 
-<input type="text" id="userInput" placeholder="Skriv din fråga..." />
-<button onclick="sendMessage()">Skicka</button>
-<button onclick="scanAllSources()">Skanna för smarthet</button>
-<button onclick="toggleLearnMode()">Lär-läge: AV</button>
-<span id="learnModeIndicator"></span>
+<h1>All Vetande AI</h1>
+
+<div>
+<label for="sourceType">Källa:</label>
+<select id="sourceType">
+  <option value="wikipedia">Wikipedia</option>
+  <option value="book">Bok (URL)</option>
+</select>
+<input type="text" id="sourceInput" placeholder="Titel eller URL">
+<button onclick="addSource()">Lägg till källa</button>
+<button onclick="scanAllSources()">Skanna alla källor i kön</button>
+</div>
 
 <div id="progressContainer">
   <div id="progressBar">0%</div>
 </div>
 
+<h2>Chat</h2>
+<div id="chat"></div>
+
 <script>
-let chatDiv = document.getElementById("chat");
-let userInput = document.getElementById("userInput");
-let learnMode = false;
+// Globala variabler
 let memory = JSON.parse(localStorage.getItem("aiMemory") || "[]");
+let sourcesQueue = [];
+document.getElementById("chat").innerHTML = localStorage.getItem("chatHistory") || "";
 
-if(localStorage.getItem("chatHistory")) {
-    chatDiv.innerHTML = localStorage.getItem("chatHistory");
+// Lägg till källa i kön
+function addSource() {
+    let type = document.getElementById("sourceType").value;
+    let input = document.getElementById("sourceInput").value.trim();
+    if(!input) { appendChat("Ange titel eller URL för källan."); return; }
+
+    let src = {type, query: type==="wikipedia"?input:null, url:type==="book"?input:null};
+    sourcesQueue.push(src);
+    document.getElementById("sourceInput").value="";
+    appendChat("Källa lagd i kö: " + (src.query || src.url));
 }
 
-function saveChat() {
-    localStorage.setItem("chatHistory", chatDiv.innerHTML);
+// Starta kö-skanning
+function scanAllSources() {
+    if(sourcesQueue.length===0){ appendChat("Ingen källa i kön att skanna."); return; }
+    appendChat("Startar skanning av alla källor...");
+    scanNextSource();
 }
 
-function toggleLearnMode() {
-    learnMode = !learnMode;
-    document.querySelector("button[onclick='toggleLearnMode()']").innerText = learnMode ? "Lär-läge: PÅ" : "Lär-läge: AV";
-    document.getElementById("learnModeIndicator").innerText = learnMode ? "Lär-läge aktiverat" : "";
-    localStorage.setItem("learnMode", learnMode);
+// Skannar nästa källa i kön
+async function scanNextSource() {
+    if(sourcesQueue.length===0){ appendChat("Alla källor har skannats."); return; }
+    let src = sourcesQueue.shift();
+    await scanSourceProgressively(src);
+    scanNextSource(); // nästa källa
 }
 
-function appendChat(text) {
-    chatDiv.innerHTML += text + "\n\n";
-    chatDiv.scrollTop = chatDiv.scrollHeight;
-    saveChat();
-}
-
-function sendMessage() {
-    let msg = userInput.value;
-    if(msg.trim() === "") return;
-    appendChat("Du: " + msg);
-    let response = generateResponse(msg);
-    appendChat("AI: " + response);
-    userInput.value = "";
-}
-
-function generateResponse(input) {
-    // Sök i minnet efter relevanta källor
-    let found = memory.find(item => item.content && item.content.toLowerCase().includes(input.toLowerCase()));
-    if(found) return "Jag har läst om detta: " + truncate(found.content, 500);
-
-    // Generiskt svar
-    let genericAnswer = "Jag har inte sett detta tidigare. (Exempel-svar)";
-
-    // Lär-läge: spara i minnet
-    if(learnMode) {
-        memory.push({question: input, answer: genericAnswer});
-        localStorage.setItem("aiMemory", JSON.stringify(memory));
-    }
-    return genericAnswer;
-}
-
-function truncate(str, n) {
-    return (str.length > n) ? str.substr(0, n) + "..." : str;
-}
-
-// Källor för skanning
-let sources = [
-    {type: "wikipedia", query: "Sverige"},
-    {type: "wikipedia", query: "Matematik"},
-    {type: "book", url: "https://www.gutenberg.org/cache/epub/1342/pg1342.txt"} // Pride and Prejudice
-];
-
-async function scanAllSources() {
-    appendChat("Startar fullständig skanning av AI-källor...");
+// Progressiv skanning stycke för stycke
+async function scanSourceProgressively(src) {
+    appendChat("Skannar: " + (src.query || src.url));
     let progressContainer = document.getElementById("progressContainer");
     let progressBar = document.getElementById("progressBar");
-    progressContainer.style.display = "block";
+    progressContainer.style.display="block";
 
-    for(let i = 0; i < sources.length; i++) {
-        let src = sources[i];
+    try {
+        let text="";
+        if(src.type==="wikipedia") {
+            let response = await fetch(`https://sv.wikipedia.org/w/api.php?origin=*&action=query&prop=extracts&format=json&explaintext=&titles=${encodeURIComponent(src.query)}`);
+            let data = await response.json();
+            let pages = data.query.pages;
+            for(let key in pages) text = pages[key].extract || "";
+        } else if(src.type==="book") {
+            let response = await fetch(src.url);
+            text = await response.text();
+        }
 
-        try {
-            let text = "";
-            if(src.type === "wikipedia") {
-                let response = await fetch(`https://sv.wikipedia.org/w/api.php?origin=*&action=query&prop=extracts&format=json&exintro=&titles=${encodeURIComponent(src.query)}`);
-                let data = await response.json();
-                let pages = data.query.pages;
-                for(let key in pages) text = pages[key].extract || "";
-            } else if(src.type === "book") {
-                let response = await fetch(src.url);
-                text = await response.text();
-            }
-
-            // Lägg till i AI-minnet
-            memory.push({source: src.query || src.url, content: text});
+        let paragraphs = text.split("\n\n").filter(p => p.trim()!=="");
+        for(let i=0;i<paragraphs.length;i++){
+            memory.push({source: src.query || src.url, content: paragraphs[i]});
             localStorage.setItem("aiMemory", JSON.stringify(memory));
 
-            // Uppdatera progress-bar
-            let percent = Math.floor(((i + 1) / sources.length) * 100);
-            progressBar.style.width = percent + "%";
-            progressBar.innerText = percent + "%";
-        } catch(err) {
-            appendChat("Fel vid skanning av " + (src.query || src.url) + ": " + err);
-        }
-    }
+            let progressPercent = Math.round(((i+1)/paragraphs.length)*100);
+            progressBar.style.width = progressPercent+"%";
+            progressBar.innerText = progressPercent+"%";
 
-    progressContainer.style.display = "none";
-    appendChat("Fullständig skanning klar! AI:n har lärt sig från alla tillgängliga källor.");
+            await new Promise(resolve => setTimeout(resolve,50));
+        }
+        appendChat("Skanning klar: " + (src.query || src.url));
+    } catch(err) {
+        appendChat("Fel vid skanning: " + err);
+    }
+    setTimeout(()=>progressContainer.style.display="none",1000);
+}
+
+// Chat-funktion
+function appendChat(text){
+    let chatDiv = document.getElementById("chat");
+    chatDiv.innerHTML += text + "\n\n";
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+    localStorage.setItem("chatHistory", chatDiv.innerHTML);
 }
 </script>
 </body>
