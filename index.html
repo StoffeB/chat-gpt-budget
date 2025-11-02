@@ -1,106 +1,130 @@
-<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>All vetande AI-klon med Lär-läge</title>
+<title>All vetande AI – Fullständig lär-läge</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
+body { font-family: Arial; background: #f9f9f9; padding: 20px; }
+#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background: #fff; margin-bottom: 10px; }
 input { padding: 10px; width: 60%; font-size: 16px; }
 button { padding: 10px 20px; font-size: 16px; margin-left: 10px; cursor: pointer; margin-bottom: 10px; }
-select { padding: 10px; font-size: 16px; margin-bottom: 10px; width: 100%; }
-#learnModeIndicator { margin-left: 10px; font-weight: bold; color: green; }
+#progressContainer { width: 100%; background: #ddd; margin-top: 10px; height: 20px; display: none; }
+#progressBar { width: 0%; height: 100%; background: green; text-align: center; color: white; }
 </style>
 </head>
 <body>
-<h2>All vetande AI-klon (Smart + Lär-läge + Local Storage)</h2>
-
-<select id="aiSelector" multiple>
-  <option value="textAI">TextAI</option>
-  <option value="codeAI">KodAI</option>
-  <option value="creativeAI">KreativAI</option>
-  <option value="healthAI">HälsaAI</option>
-  <option value="allKnowingAI" selected>All vetande</option>
-</select>
-
+<h2>All vetande AI – Fullständig lär-läge</h2>
 <div id="chat"></div>
 
 <input type="text" id="userInput" placeholder="Skriv din fråga..." />
 <button onclick="sendMessage()">Skicka</button>
-<button onclick="scanForSmartness()">Skanna för smarthet</button>
-<button id="learnModeBtn" onclick="toggleLearnMode()">Lär-läge: AV</button>
+<button onclick="scanAllSources()">Skanna för smarthet</button>
+<button onclick="toggleLearnMode()">Lär-läge: AV</button>
 <span id="learnModeIndicator"></span>
+
+<div id="progressContainer">
+  <div id="progressBar">0%</div>
+</div>
 
 <script>
 let chatDiv = document.getElementById("chat");
 let userInput = document.getElementById("userInput");
 let learnMode = false;
-
-// Läs chat, lär-läge och AI-minne från Local Storage
 let memory = JSON.parse(localStorage.getItem("aiMemory") || "[]");
 
 if(localStorage.getItem("chatHistory")) {
     chatDiv.innerHTML = localStorage.getItem("chatHistory");
 }
-if(localStorage.getItem("learnMode") === "true") {
-    learnMode = true;
-    document.getElementById("learnModeBtn").innerText = "Lär-läge: PÅ";
-    document.getElementById("learnModeIndicator").innerText = "Lär-läge aktiverat";
-}
 
-// Spara chat
 function saveChat() {
     localStorage.setItem("chatHistory", chatDiv.innerHTML);
 }
 
-// Toggle lär-läge
 function toggleLearnMode() {
     learnMode = !learnMode;
-    document.getElementById("learnModeBtn").innerText = learnMode ? "Lär-läge: PÅ" : "Lär-läge: AV";
+    document.querySelector("button[onclick='toggleLearnMode()']").innerText = learnMode ? "Lär-läge: PÅ" : "Lär-läge: AV";
     document.getElementById("learnModeIndicator").innerText = learnMode ? "Lär-läge aktiverat" : "";
     localStorage.setItem("learnMode", learnMode);
 }
 
-// Skicka meddelande
-function sendMessage() {
-    let msg = userInput.value;
-    if(msg.trim() === "") return;
-    appendChat("Du: " + msg);
-    let response = generateResponse(msg);
-    appendChat("All vetande AI: " + response);
-    userInput.value = "";
-}
-
-// Append till chat och spara
 function appendChat(text) {
     chatDiv.innerHTML += text + "\n\n";
     chatDiv.scrollTop = chatDiv.scrollHeight;
     saveChat();
 }
 
-// Generera svar med minne
+function sendMessage() {
+    let msg = userInput.value;
+    if(msg.trim() === "") return;
+    appendChat("Du: " + msg);
+    let response = generateResponse(msg);
+    appendChat("AI: " + response);
+    userInput.value = "";
+}
+
 function generateResponse(input) {
-    // Leta efter tidigare liknande frågor i minnet
-    let found = memory.find(item => item.question.toLowerCase() === input.toLowerCase());
-    if(found) {
-        return "Jag minns detta: " + found.answer;
-    }
+    // Sök i minnet efter relevanta källor
+    let found = memory.find(item => item.content && item.content.toLowerCase().includes(input.toLowerCase()));
+    if(found) return "Jag har läst om detta: " + truncate(found.content, 500);
 
-    // Om inget minne, skapa generiskt svar
-    let genericAnswer = "Jag har lärt mig om '" + input + "' och kan ge svar här. (Exempel-svar)";
+    // Generiskt svar
+    let genericAnswer = "Jag har inte sett detta tidigare. (Exempel-svar)";
 
-    // Lär-läge: spara input och svar i minnet
+    // Lär-läge: spara i minnet
     if(learnMode) {
         memory.push({question: input, answer: genericAnswer});
         localStorage.setItem("aiMemory", JSON.stringify(memory));
     }
-
     return genericAnswer;
 }
 
-// Skanna för smarthet (placeholder)
-function scanForSmartness() {
-    appendChat("Skannar internet för smarthet... (detta är en demo, ingen riktig sökning utförs)");
+function truncate(str, n) {
+    return (str.length > n) ? str.substr(0, n) + "..." : str;
+}
+
+// Källor för skanning
+let sources = [
+    {type: "wikipedia", query: "Sverige"},
+    {type: "wikipedia", query: "Matematik"},
+    {type: "book", url: "https://www.gutenberg.org/cache/epub/1342/pg1342.txt"} // Pride and Prejudice
+];
+
+async function scanAllSources() {
+    appendChat("Startar fullständig skanning av AI-källor...");
+    let progressContainer = document.getElementById("progressContainer");
+    let progressBar = document.getElementById("progressBar");
+    progressContainer.style.display = "block";
+
+    for(let i = 0; i < sources.length; i++) {
+        let src = sources[i];
+
+        try {
+            let text = "";
+            if(src.type === "wikipedia") {
+                let response = await fetch(`https://sv.wikipedia.org/w/api.php?origin=*&action=query&prop=extracts&format=json&exintro=&titles=${encodeURIComponent(src.query)}`);
+                let data = await response.json();
+                let pages = data.query.pages;
+                for(let key in pages) text = pages[key].extract || "";
+            } else if(src.type === "book") {
+                let response = await fetch(src.url);
+                text = await response.text();
+            }
+
+            // Lägg till i AI-minnet
+            memory.push({source: src.query || src.url, content: text});
+            localStorage.setItem("aiMemory", JSON.stringify(memory));
+
+            // Uppdatera progress-bar
+            let percent = Math.floor(((i + 1) / sources.length) * 100);
+            progressBar.style.width = percent + "%";
+            progressBar.innerText = percent + "%";
+        } catch(err) {
+            appendChat("Fel vid skanning av " + (src.query || src.url) + ": " + err);
+        }
+    }
+
+    progressContainer.style.display = "none";
+    appendChat("Fullständig skanning klar! AI:n har lärt sig från alla tillgängliga källor.");
 }
 </script>
 </body>
