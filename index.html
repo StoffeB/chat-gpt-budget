@@ -1,38 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="sv">
 <head>
-  <meta charset="UTF-8">
-  <title>Random 12-Digit Code Generator</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    button { font-size: 18px; padding: 10px 20px; cursor: pointer; }
-    #code { font-size: 24px; margin-top: 20px; font-weight: bold; }
-  </style>
+<meta charset="UTF-8">
+<title>Mini Programmeringsbot</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+#chat { white-space: pre-line; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: #fff; }
+button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+</style>
 </head>
 <body>
-  <h2>Random 12-Digit Code with H, M, L, T</h2>
-  <button onclick="generateCode()">Generate Code</button>
-  <p id="code"></p>
+<h2>Mini Programmeringsbot</h2>
+<div id="chat"></div>
+<button onclick="startChat()">Starta Chatt</button>
 
-  <script>
-    function generateCode() {
-      const lettersRequired = ['H', 'M', 'L', 'T'];
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let code = [];
-
-      // Ensure H, M, L, T are included
-      for (let letter of lettersRequired) code.push(letter);
-
-      // Fill the rest with random characters until length = 12
-      while (code.length < 12) {
-        code.push(chars.charAt(Math.floor(Math.random() * chars.length)));
-      }
-
-      // Shuffle the characters
-      code = code.sort(() => Math.random() - 0.5);
-
-      document.getElementById('code').textContent = code.join('');
+<script>
+function startChat() {
+    let chatDiv = document.getElementById("chat");
+    chatDiv.textContent += "Programmeringsbot: Hej! Skriv 'sluta' för att avsluta.\\n\\n";
+    let input;
+    while(true){
+        input = prompt("Du:").toLowerCase();
+        if(input === "sluta") { chatDiv.textContent += "Programmeringsbot: Hejdå!\\n"; break; }
+        else if(input === "hej") { chatDiv.textContent += "Programmeringsbot: Hej! Hur mår du?\\n"; }
+        else if(input === "tips") { chatDiv.textContent += "Programmeringsbot: Kommentera alltid din kod och välj tydliga namn på variabler.\\n"; }
+        else if(input === "python") { chatDiv.textContent += "Programmeringsbot: Python är enkelt och läsbart, perfekt för nybörjare.\\n"; }
+        else if(input === "javascript") { chatDiv.textContent += "Programmeringsbot: JavaScript körs i webbläsaren och används för dynamiska webbsidor.\\n"; }
+        else { chatDiv.textContent += "Programmeringsbot: Jag förstår inte. Prova 'hej', 'tips', 'python' eller 'javascript'.\\n"; }
     }
-  </script>
+}
+</script>
 </body>
 </html>
